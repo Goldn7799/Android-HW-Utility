@@ -1,3 +1,66 @@
-sysctl -w net.ipv4.ip_default_ttl=65
-sysctl -w net.ipv6.conf.all.hop_limit=65
-sysctl -w net.ipv6.conf.default.hop_limit=65
+# 1. Verifikasi Akses Root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "[!] Error: Script ini memerlukan akses Root (su)."
+    exit 1
+fi
+
+echo "=========================================="
+echo "    TTL / Hop Limit Changer (IPv4 & IPv6) "
+echo "=========================================="
+
+# 2. Input Nilai TTL dari User
+TTL_VAL=$1
+
+if [ -z "$TTL_VAL" ]; then
+    echo "[?] Masukkan nilai TTL / Hop Limit yang diinginkan:"
+    echo "    (Contoh: 65 untuk bypass hotspot, 64 untuk default Android)"
+    read -p "    Nilai TTL: " TTL_VAL
+fi
+
+# 3. Validasi Input (Memastikan input berupa angka positif antara 1 - 255)
+case "$TTL_VAL" in
+    ''|*[!0-9]*)
+        echo "[!] Error: Input harus berupa angka bulat!"
+        exit 1
+        ;;
+    *)
+        if [ "$TTL_VAL" -lt 1 ] || [ "$TTL_VAL" -gt 255 ]; then
+            echo "[!] Error: Nilai TTL harus berada dalam rentang 1 - 255!"
+            exit 1
+        fi
+        ;;
+esac
+
+echo "------------------------------------------"
+echo "[+] Mengubah TTL IPv4 & IPv6 ke: $TTL_VAL"
+echo "------------------------------------------"
+
+# 4. Terapkan Nilai TTL ke IPv4 (sysctl & iptables)
+echo "[1/2] Menerapkan konfigurasi IPv4..."
+sysctl -w net.ipv4.ip_default_ttl="$TTL_VAL" > /dev/null 2>&1
+
+if command -v iptables > /dev/null 2>&1; then
+    # Hapus rule lama jika ada, lalu tambahkan rule baru
+    iptables -t mangle -D POSTROUTING -j TTL --ttl-set "$TTL_VAL" > /dev/null 2>&1
+    iptables -t mangle -A POSTROUTING -j TTL --ttl-set "$TTL_VAL" > /dev/null 2>&1
+    echo "    -> [✓] iptables IPv4 berhasil dikonfigurasi."
+else
+    echo "    -> [!] iptables tidak ditemukan, hanya menggunakan sysctl."
+fi
+
+# 5. Terapkan Nilai Hop Limit ke IPv6 (sysctl & ip6tables)
+echo "[2/2] Menerapkan konfigurasi IPv6..."
+sysctl -w net.ipv6.conf.all.hop_limit="$TTL_VAL" > /dev/null 2>&1
+sysctl -w net.ipv6.conf.default.hop_limit="$TTL_VAL" > /dev/null 2>&1
+
+if command -v ip6tables > /dev/null 2>&1; then
+    # Hapus rule lama jika ada, lalu tambahkan rule baru
+    ip6tables -t mangle -D POSTROUTING -j HL --hl-set "$TTL_VAL" > /dev/null 2>&1
+    ip6tables -t mangle -A POSTROUTING -j HL --hl-set "$TTL_VAL" > /dev/null 2>&1
+    echo "    -> [✓] ip6tables IPv6 berhasil dikonfigurasi."
+else
+    echo "    -> [!] ip6tables tidak ditemukan, hanya menggunakan sysctl."
+fi
+
+echo "=========================================="
+echo "[✓] Selesai. Nilai TTL/Hop Limit telah diubah menjadi $TTL_VAL."
