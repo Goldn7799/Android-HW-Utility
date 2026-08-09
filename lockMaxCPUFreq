@@ -1,0 +1,65 @@
+# 1. Verifikasi Akses Root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "[!] Error: Script ini memerlukan akses Root (su)."
+    exit 1
+fi
+
+echo "=========================================="
+echo "    CPU Max Frequency Auto-Set Utility    "
+echo "=========================================="
+
+# 2. Deteksi Total Core CPU
+TOTAL_CORES=$(ls -d /sys/devices/system/cpu/cpu[0-9]* 2>/dev/null | wc -l)
+
+if [ "$TOTAL_CORES" -eq 0 ]; then
+    echo "[!] Error: Gagal mendeteksi core CPU."
+    exit 1
+fi
+
+echo "[i] Total Core terdeteksi: $TOTAL_CORES Core"
+echo "------------------------------------------"
+
+# 3. Loop Pengecekan & Pengaturan ke Frekuensi Maksimum
+i=0
+while [ $i -lt $TOTAL_CORES ]; do
+    CORE_PATH="/sys/devices/system/cpu/cpu$i/cpufreq"
+    
+    # Cek apakah modul cpufreq tersedia di core ini
+    if [ -d "$CORE_PATH" ]; then
+        # Membaca frekuensi maksimum asli hardware dari driver kernel (dalam kHz)
+        HW_MAX=$(cat "$CORE_PATH/cpuinfo_max_freq" 2>/dev/null)
+        
+        if [ -n "$HW_MAX" ]; then
+            # Konversi kHz ke MHz/GHz untuk tampilan logs
+            FREQ_MHZ=$((HW_MAX / 1000))
+            
+            echo "[+] CPU $i: Max Freq Hardware = ${HW_MAX} kHz (${FREQ_MHZ} MHz)"
+            
+            # Ubah governor ke performance jika tersedia (opsional untuk responsivitas instan)
+            if grep -q "performance" "$CORE_PATH/scaling_available_governors" 2>/dev/null; then
+                echo "performance" > "$CORE_PATH/scaling_governor" 2>/dev/null
+            fi
+            
+            # Kunci frekuensi min & max ke nilai hardware tertinggi
+            echo "$HW_MAX" > "$CORE_PATH/scaling_max_freq" 2>/dev/null
+            echo "$HW_MAX" > "$CORE_PATH/scaling_min_freq" 2>/dev/null
+            
+            # Verifikasi hasil penerapan
+            CURR_MAX=$(cat "$CORE_PATH/scaling_max_freq" 2>/dev/null)
+            if [ "$CURR_MAX" -eq "$HW_MAX" ]; then
+                echo "    -> [BERHASIL] CPU $i diset ke frekuensi tertinggi (${CURR_MAX} kHz)."
+            else
+                echo "    -> [GAGAL] CPU $i dikunci oleh thermal / kernel driver."
+            fi
+        else
+            echo "[-] CPU $i: Gagal membaca cpuinfo_max_freq."
+        fi
+    else
+        echo "[-] CPU $i: cpufreq tidak aktif atau core dalam keadaan offline."
+    fi
+    
+    echo "------------------------------------------"
+    i=$((i + 1))
+done
+
+echo "[✓] Proses penguncian frekuensi maksimum selesai."

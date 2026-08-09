@@ -1,0 +1,95 @@
+# 1. Verifikasi Akses Root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "[!] Error: Script ini memerlukan akses Root (su)."
+    exit 1
+fi
+
+echo "=========================================="
+echo "    CPU Frequency Configuration Utility   "
+echo "=========================================="
+
+# 2. Deteksi Total Core CPU
+TOTAL_CORES=$(ls -d /sys/devices/system/cpu/cpu[0-9]* 2>/dev/null | wc -l)
+
+if [ "$TOTAL_CORES" -eq 0 ]; then
+    echo "[!] Error: Gagal mendeteksi core CPU."
+    exit 1
+fi
+
+echo "[i] Total Core CPU terdeteksi: $TOTAL_CORES Core"
+echo "------------------------------------------"
+
+# Function untuk mengubah Frekuensi CPU per Core
+set_core_freq() {
+    CORE_NUM=$1
+    TARGET_FREQ=$2
+    
+    CORE_PATH="/sys/devices/system/cpu/cpu$CORE_NUM/cpufreq"
+    
+    if [ ! -d "$CORE_PATH" ]; then
+        echo "[-] CPU $CORE_NUM: Tidak memiliki kontrol cpufreq (mungkin offline/driver tidak mendukung)."
+        return
+    fi
+
+    # Baca Frekuensi Minimum dan Maksimum Hardware yang diizinkan kernel (dalam kHz)
+    HW_MIN=$(cat "$CORE_PATH/cpuinfo_min_freq" 2>/dev/null)
+    HW_MAX=$(cat "$CORE_PATH/cpuinfo_max_freq" 2>/dev/null)
+
+    if [ -z "$HW_MIN" ] || [ -z "$HW_MAX" ]; then
+        echo "[-] CPU $CORE_NUM: Gagal membaca batas frekuensi hardware."
+        return
+    fi
+
+    echo "[i] CPU $CORE_NUM Hardware Limits -> Min: ${HW_MIN} kHz | Max: ${HW_MAX} kHz"
+
+    # Validasi Frekuensi Target
+    FINAL_FREQ=$TARGET_FREQ
+
+    if [ "$FINAL_FREQ" -gt "$HW_MAX" ]; then
+        echo "    [!] Warning: Target ($FINAL_FREQ kHz) melebihi batas Max ($HW_MAX kHz). Penyesuaian otomatis ke Max."
+        FINAL_FREQ=$HW_MAX
+    elif [ "$FINAL_FREQ" -lt "$HW_MIN" ]; then
+        echo "    [!] Warning: Target ($FINAL_FREQ kHz) di bawah batas Min ($HW_MIN kHz). Penyesuaian otomatis ke Min."
+        FINAL_FREQ=$HW_MIN
+    fi
+
+    # Menyetel Governor ke 'userspace' atau merubah scaling_max_freq/scaling_min_freq
+    # Cara paling aman di Android/Linux: Set scaling_max_freq dan scaling_min_freq
+    echo $FINAL_FREQ > "$CORE_PATH/scaling_max_freq" 2>/dev/null
+    echo $FINAL_FREQ > "$CORE_PATH/scaling_min_freq" 2>/dev/null
+
+    # Verifikasi Hasil
+    CURR_MAX=$(cat "$CORE_PATH/scaling_max_freq" 2>/dev/null)
+    CURR_MIN=$(cat "$CORE_PATH/scaling_min_freq" 2>/dev/null)
+    echo "    [✓] CPU $CORE_NUM berhasil diset ke Min: ${CURR_MIN} kHz | Max: ${CURR_MAX} kHz"
+}
+
+# 3. Input Frekuensi dari User (atau Set Manual di variabel TARGET_FREQ_KHZ)
+# Contoh default: 1800000 kHz (1.8 GHz).
+# Jika ingin diset manual via argumen script: ./set_cpufreq.sh 2028000
+TARGET_FREQ_INPUT=$1
+
+if [ -z "$TARGET_FREQ_INPUT" ]; then
+    echo "[?] Masukkan target frekuensi yang diinginkan (dalam kHz):"
+    echo "    Contoh: 1800000 (untuk 1.8 GHz) atau 2028000 (untuk 2.02 GHz)"
+    read -p "    Target Freq (kHz): " TARGET_FREQ_INPUT
+fi
+
+if [ -z "$TARGET_FREQ_INPUT" ]; then
+    echo "[!] Input tidak boleh kosong."
+    exit 1
+fi
+
+echo "------------------------------------------"
+echo "[+] Menerapkan frekuensi $TARGET_FREQ_INPUT kHz ke semua core..."
+echo "------------------------------------------"
+
+# 4. Loop ke Semua Core
+i=0
+while [ $i -lt $TOTAL_CORES ]; do
+    set_core_freq $i $TARGET_FREQ_INPUT
+    i=$((i + 1))
+done
+
+echo "=========================================="
+echo "[✓] Selesai."
