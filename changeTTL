@@ -1,0 +1,3 @@
+sysctl -w net.ipv4.ip_default_ttl=65
+sysctl -w net.ipv6.conf.all.hop_limit=65
+sysctl -w net.ipv6.conf.default.hop_limit=65
