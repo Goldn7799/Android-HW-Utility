@@ -76,6 +76,23 @@ chmod +x lockMaxCPUFreq
 
 ---
 
+## 5. `setGovernor` — Interactive CPU Governor Menu Selector
+* **Description:** Scans active CPU cores and dynamically generates a numbered menu of all available scaling governors supported by the running kernel (e.g., `performance`, `schedutil`, `powersave`). Pauses for user input via terminal prompt before applying the chosen governor across all detected CPU cores.
+* **Key Features:**
+  * Auto-detects supported governors directly from `/sys/devices/system/cpu/cpufreq/scaling_available_governors`.
+  * POSIX/`mksh`-compliant interactive menu designed specifically for Android shell environments (Termux/ADB).
+  * Includes robust input validation to prevent invalid menu selections.
+  * Performs per-core verification post-execution to ensure successful governor assignment.
+
+#### Usage
+```bash
+su
+chmod +x setGovernor
+./setGovernor
+```
+
+---
+
 ## 🚀 Quick Installation
 
 You can clone this repository directly on your device using Termux or git-enabled terminal:
