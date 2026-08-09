@@ -18,24 +18,56 @@ A curated collection of lightweight Shell scripts designed for rooted Android de
 #### Usage
 ```bash
 su
-chmod +x renableCore.sh
-./renableCore.sh
+chmod +x renableCore
+./renableCore
 ```
 
 ---
 
-### 2. `changeTTL` — Tethering TTL Bypasser (IPv4 & IPv6)
-* **Description:** Modifies the system's default Time To Live (TTL) and Hop Limit value to **`65`** across all active network interfaces (`wlan0`, `rmnet_data*`, `rndis0`, etc.). Setting the TTL value to 65 ensures that data packets passing through tethered devices (like PC or Smart TV via Mobile Hotspot or USB Tethering) arrive at the carrier gateway with a TTL of 64, appearing as native mobile traffic.
+## 2. `changeTTL` — Tethering TTL Bypasser (IPv4 & IPv6)
+* **Description:** Modifies the system's default Time To Live (TTL) and Hop Limit value based on user input across all active network interfaces (`wlan0`, `rmnet_data*`, `rndis0`, etc.). Setting the TTL value via user prompt ensures that data packets passing through tethered devices (like PC or Smart TV via Mobile Hotspot or USB Tethering) arrive at the carrier gateway with a custom TTL (e.g., 65), appearing as native mobile traffic.
 * **Key Features:**
- * Configures both IPv4 (`ip4tables` / `sysctl`) and IPv6 (`ip6tables`) rules.
- * Automatically sets network properties for tethering interfaces.
- * Solves hot-spot throttling and carrier tethering data caps.
+  * Takes dynamic user input with built-in numerical validation (1–255).
+  * Configures both IPv4 (`ip4tables` / `sysctl`) and IPv6 (`ip6tables`) rules.
+  * Solves hotspot throttling and carrier tethering data caps.
+ 
+#### Usage
+```bash
+su
+chmod +x changeTTL
+./changeTTL 65
+```
+
+---
+
+## 3. `lockCPUFreq` — Custom CPU Frequency Lock Utility
+* **Description:** Sets all detected CPU cores to a specific user-defined frequency (such as 1800000 kHz / 1.8 GHz). Before applying changes, the script inspects each core's hardware limits (`cpuinfo_min_freq` and `cpuinfo_max_freq`) to clamp the frequency safely within valid ranges, preventing out-of-bounds errors or unstable behavior.
+* **Key Features:**
+  * Auto-detects total CPU cores and individual core hardware limits.
+  * Clamps target frequencies automatically if they exceed minimum or maximum limits.
+  * Locks both `scaling_min_freq` and `scaling_max_freq` across all CPU clusters without modifying the scaling governor.
+ 
+#### Usage
+```bash
+su
+chmod +x lockCPUFreq
+./lockCPUFreq 1800000
+```
+
+---
+
+## 4. `lockMaxCPUFreq` — Maximum CPU Frequency Auto-Lock Utility
+* **Description:** Automatically queries each CPU core's highest supported hardware frequency (`cpuinfo_max_freq`) and forces the CPU to lock at its maximum clock speed without requiring any user input. It handles asymmetric CPU topologies (such as BIG.little architectures) by independently setting each cluster to its respective maximum threshold.
+* **Key Features:**
+  * Fully automated execution with zero manual user input required.
+  * Reads per-core maximum limits directly from kernel driver files.
+  * Preserves original CPU governors (e.g., `schedutil`) while locking minimum and maximum scaling clocks to peak performance.
 
 #### Usage
 ```bash
 su
-chmod +x changeTTL.sh
-./changeTTL.sh
+chmod +x lockMaxCPUFreq
+./lockMaxCPUFreq
 ```
 
 ---
