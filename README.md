@@ -93,6 +93,40 @@ chmod +x setGovernor
 
 ---
 
+### 6. `getCPULoad` — Overall & Per-Core CPU Performance Monitor
+* **Description:** Accurately calculates real-time overall CPU usage, per-core utilization, and current operating frequencies. Since the Android kernel tracks CPU statistics cumulatively in `/proc/stat` from boot, this script samples time deltas across a short interval to compute exact usage percentages without relying on heavy external utilities like `htop`. It outputs structured data (JSON/formatted text) suitable for scripting or live notifications.
+* **Key Features:**
+ * Dual-sample delta calculation (`/proc/stat`) for accurate real-time percentage monitoring.
+ * Detailed per-core breakdown including usage percentage and frequency (MHz).
+ * Offline core detection handling (`OFF` status for sleeping cores).
+ * Outputs raw JSON-compatible structure or pretty-printed logs for easy integration.
+
+#### Usage
+```bash
+su
+chmod +x getCPULoad
+./getCPULoad
+```
+
+---
+
+### 7. `getGPULoad` — Universal GPU Utilization & Frequency Tracker
+* **Description:** Queries sysfs driver interfaces to extract GPU load percentages and current clock speeds across various Android SoC platforms (Qualcomm Snapdragon/Adreno, MediaTek/GED, and Samsung Exynos/Mali). It handles vendor-specific path variations and raw counter math (`gpubusy`) automatically to ensure consistent output on almost any rooted Android device.
+* **Key Features:**
+ * Multi-SoC support (Snapdragon Adreno, MediaTek GED, Exynos Mali).
+ * Fallback mechanism for raw counter calculation (`busy / total * 100`).
+ * Silent frequency and load polling via kernel sysfs nodes.
+ * Lightweight execution with zero performance overhead.
+
+#### Usage
+```bash
+su
+chmod +x getGPULoad
+./getGPULoad
+```
+
+---
+
 ## 🚀 Quick Installation
 
 You can clone this repository directly on your device using Termux or git-enabled terminal:
