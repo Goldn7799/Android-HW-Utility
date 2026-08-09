@@ -8,7 +8,7 @@ A curated collection of lightweight Shell scripts designed for rooted Android de
 
 ## 📜 Available Scripts
 
-### 1. `renableCore.sh` — CPU Core Recovery Utility
+### 1. `renableCore` — CPU Core Recovery Utility
 * **Description:** Automatically detects all available CPU cores and forces offline/stuck cores back online. On many Android kernels, thermal throttling or aggressive power management (*hotplugging*) forces cores into an offline state and fails to wake them up. This script safely queries system CPU topology and wakes up dormant cores to restore maximum device performance.
 * **Key Features:**
  * Dynamic CPU core count detection to prevent out-of-bounds errors.
@@ -24,7 +24,7 @@ chmod +x renableCore.sh
 
 ---
 
-### 2. `changeTTL.sh` — Tethering TTL Bypasser (IPv4 & IPv6)
+### 2. `changeTTL` — Tethering TTL Bypasser (IPv4 & IPv6)
 * **Description:** Modifies the system's default Time To Live (TTL) and Hop Limit value to **`65`** across all active network interfaces (`wlan0`, `rmnet_data*`, `rndis0`, etc.). Setting the TTL value to 65 ensures that data packets passing through tethered devices (like PC or Smart TV via Mobile Hotspot or USB Tethering) arrive at the carrier gateway with a TTL of 64, appearing as native mobile traffic.
 * **Key Features:**
  * Configures both IPv4 (`ip4tables` / `sysctl`) and IPv6 (`ip6tables`) rules.
