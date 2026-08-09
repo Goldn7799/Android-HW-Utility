@@ -1,22 +1,34 @@
 get_cpu_stats() {
-    # 1. Ambil sampel pertama
-    stat1=$(cat /proc/stat)
-    
-    # Jeda 1 detik untuk sampel kalkulasi persentase
+    # 1. Ambil Sampel Pertama
+    read -r _ u1 n1 s1 i1 w1 ir1 si1 st1 _ < /proc/stat
+
+    cores1=""
+    while read -r line; do
+        case "$line" in
+            cpu[0-9]*) cores1="${cores1}${line}\n" ;;
+            *) [ -n "$cores1" ] && break ;;
+        esac
+    done < /proc/stat
+
     sleep 1
 
-    # 2. Ambil sampel kedua
-    stat2=$(cat /proc/stat)
+    # 2. Ambil Sampel Kedua
+    read -r _ u2 n2 s2 i2 w2 ir2 si2 st2 _ < /proc/stat
 
-    # --- Hitung Usage Overall ---
-    l1_all=$(echo "$stat1" | grep "^cpu ")
-    l2_all=$(echo "$stat2" | grep "^cpu ")
+    cores2=""
+    while read -r line; do
+        case "$line" in
+            cpu[0-9]*) cores2="${cores2}${line}\n" ;;
+            *) [ -n "$cores2" ] && break ;;
+        esac
+    done < /proc/stat
 
-    t1_all=$(echo "$l1_all" | awk '{sum=0; for(i=2;i<=9;i++) sum+=$i; print sum}')
-    i1_all=$(echo "$l1_all" | awk '{print $5+$6}')
+    # --- 3. Hitung Overall CPU Usage ---
+    t1_all=$((u1 + n1 + s1 + i1 + w1 + ir1 + si1 + st1))
+    i1_all=$((i1 + w1))
 
-    t2_all=$(echo "$l2_all" | awk '{sum=0; for(i=2;i<=9;i++) sum+=$i; print sum}')
-    i2_all=$(echo "$l2_all" | awk '{print $5+$6}')
+    t2_all=$((u2 + n2 + s2 + i2 + w2 + ir2 + si2 + st2))
+    i2_all=$((i2 + w2))
 
     td_all=$((t2_all - t1_all))
     id_all=$((i2_all - i1_all))
@@ -27,26 +39,33 @@ get_cpu_stats() {
         overall=0
     fi
 
-    # --- Hitung Usage & Frequency Per-Core ---
+    # --- 4. Tentukan Direktori Temporary Aman di Android ---
+    if [ -d /dev/tmp ]; then
+        TMP_OUT="/dev/tmp/.cpu_out"
+    else
+        TMP_OUT="/data/local/tmp/.cpu_out"
+    fi
+
+    # --- 5. Hitung Per-Core Usage & Frequency ---
     cores_array=""
     freqs_array=""
 
-    # Tampung sementara hasil iterasi ke file tmp agar tidak hilang akibat subshell loop
-    tmp_file="/sdcard/.cpu_tmp_data"
-    
-    echo "$stat1" | grep "^cpu[0-9]" | while read -r line1; do
-        c_name=$(echo "$line1" | awk '{print $1}')
-        line2=$(echo "$stat2" | grep "^${c_name} ")
+    printf "%b" "$cores1" | while read -r c_name u1 n1 s1 i1 w1 ir1 si1 st1 _; do
+        [ -z "$c_name" ] && continue
 
-        # Hitung Persentase Core
-        t1=$(echo "$line1" | awk '{sum=0; for(i=2;i<=9;i++) sum+=$i; print sum}')
-        i1=$(echo "$line1" | awk '{print $5+$6}')
+        line2=$(printf "%b" "$cores2" | grep "^${c_name} ")
+        
+        set -- $line2
+        u2=$2; n2=$3; s2=$4; i2=$5; w2=$6; ir2=$7; si2=$8; st2=$9
 
-        t2=$(echo "$line2" | awk '{sum=0; for(i=2;i<=9;i++) sum+=$i; print sum}')
-        i2=$(echo "$line2" | awk '{print $5+$6}')
+        t1=$((u1 + n1 + s1 + i1 + w1 + ir1 + si1 + st1))
+        id1=$((i1 + w1))
+
+        t2=$((u2 + n2 + s2 + i2 + w2 + ir2 + si2 + st2))
+        id2=$((i2 + w2))
 
         td=$((t2 - t1))
-        id=$((i2 - i1))
+        id=$((id2 - id1))
 
         if [ $td -gt 0 ]; then
             usage=$(( (td - id) * 100 / td ))
@@ -54,34 +73,35 @@ get_cpu_stats() {
             usage=0
         fi
 
-        # Ambil Frekuensi Core (dalam MHz)
-        core_num=$(echo "$c_name" | tr -d 'cpu')
+        core_num="${c_name#cpu}"
         freq_file="/sys/devices/system/cpu/cpu${core_num}/cpufreq/scaling_cur_freq"
-        
+
         if [ -f "$freq_file" ]; then
-            freq_khz=$(cat "$freq_file")
+            read -r freq_khz < "$freq_file"
             freq=$((freq_khz / 1000))
         else
-            freq=0 # 0 jika core offline / deep sleep
+            freq=0
         fi
 
-        echo "$usage $freq"
-    done > "$tmp_file"
-
-    # Menyusun Array JSON dari hasil tmp
-    while read -r u_val f_val; do
         if [ -z "$cores_array" ]; then
-            cores_array="$u_val"
-            freqs_array="$f_val"
+            cores_array="$usage"
+            freqs_array="$freq"
         else
-            cores_array="${cores_array}, ${u_val}"
-            freqs_array="${freqs_array}, ${f_val}"
+            cores_array="${cores_array}, ${usage}"
+            freqs_array="${freqs_array}, ${freq}"
         fi
-    done < "$tmp_file"
-    
-    rm -f "$tmp_file"
 
-    # --- Output JSON Object ---
+        # Simpan ke TMP_OUT aman
+        echo "$cores_array|$freqs_array" > "$TMP_OUT"
+    done
+
+    # Baca hasil akhir
+    if [ -f "$TMP_OUT" ]; then
+        IFS='|' read -r cores_array freqs_array < "$TMP_OUT"
+        rm -f "$TMP_OUT"
+    fi
+
+    # --- 6. Output JSON Object ---
     cat <<EOF
 {
   "cpu": ${overall},
