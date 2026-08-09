@@ -1,0 +1,35 @@
+get_gpu_usage() {
+    if [ -f /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage ]; then
+        cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage | tr -d ' %'
+    elif [ -f /sys/class/kgsl/kgsl-3d0/gpubusy ]; then
+        read -r busy total < /sys/class/kgsl/kgsl-3d0/gpubusy
+        if [ -n "$total" ] && [ "$total" -gt 0 ]; then
+            echo "$((busy * 100 / total))"
+        else
+            echo "0"
+        fi
+    elif [ -f /sys/module/ged/parameters/gpu_loading ]; then
+        cat /sys/module/ged/parameters/gpu_loading | awk '{print $1}'
+    elif [ -f /sys/class/misc/mali0/device/utilization ]; then
+        cat /sys/class/misc/mali0/device/utilization
+    else
+        echo "0"
+    fi
+}
+
+get_gpu_freq() {
+    if [ -f /sys/class/kgsl/kgsl-3d0/gpuclk ]; then
+        freq_hz=$(cat /sys/class/kgsl/kgsl-3d0/gpuclk)
+        echo "$((freq_hz / 1000000))"
+    elif [ -f /sys/class/kgsl/kgsl-3d0/devfreq/cur_freq ]; then
+        freq_hz=$(cat /sys/class/kgsl/kgsl-3d0/devfreq/cur_freq)
+        echo "$((freq_hz / 1000000))"
+    elif [ -f /sys/class/misc/mali0/device/cur_freq ]; then
+        freq_khz=$(cat /sys/class/misc/mali0/device/cur_freq)
+        echo "$((freq_khz / 1000))"
+    else
+        echo "N/A"
+    fi
+}
+
+echo "GPU : $(get_gpu_usage)% ($(get_gpu_freq)MHz)"
