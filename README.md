@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="HWbanner.jpg" alt="Android-HW-Utility Banner" width="100%">
+</p>
+
 # 🛠️ Android-HW-Utility
 
 A curated collection of lightweight Shell scripts designed for rooted Android devices. These utilities allow power users and developers to manipulate system properties, bypass carrier restrictions, and control hardware states directly via terminal.
